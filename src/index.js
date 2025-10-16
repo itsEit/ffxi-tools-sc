@@ -2025,7 +2025,7 @@ function calculateSkillchains() {
             return;
         }
 
-        const CALCULATION_LIMIT = 500000;
+        const CALCULATION_LIMIT = 1000000;
         let calculationCount = 0;
         let limitReached = false;
 
