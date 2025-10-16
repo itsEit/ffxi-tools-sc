@@ -1975,12 +1975,14 @@ function calculateSkillchains() {
     const resultsContainer = document.getElementById('results-container');
     const loadingIndicator = document.getElementById('loading-indicator');
     const resultsHeader = document.getElementById('results-header');
+    const warningContainer = document.getElementById('warning-container');
 
     // Prepare UI for loading state
     resultsArea.classList.remove('hidden');
     loadingIndicator.classList.remove('hidden');
     resultsHeader.classList.add('hidden');
     resultsContainer.innerHTML = '';
+    warningContainer.innerHTML = ''; // Clear previous warnings
     allFoundPaths = [];
 
     // Use setTimeout to allow the browser to render the loading indicator before the heavy calculation starts
@@ -2084,7 +2086,7 @@ function calculateSkillchains() {
             displayResults(allFoundPaths);
             
             if (limitReached) {
-                resultsContainer.innerHTML += `<p class="text-yellow-400 mt-4 font-semibold">Calculation limit of ${CALCULATION_LIMIT.toLocaleString()} iterations reached. Results may be incomplete. Please narrow your selections.</p>`;
+                warningContainer.innerHTML = `<p class="text-yellow-400 mt-4 font-semibold">Calculation limit of ${CALCULATION_LIMIT.toLocaleString()} iterations reached. Results may be incomplete. Please narrow your selections.</p>`;
             }
         };
 
