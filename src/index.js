@@ -1807,7 +1807,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Populate weapon select
         for (const weaponId in WEAPONS) {
-            console.log(weaponId)
             const option = document.createElement('option');
             option.value = weaponId;
             option.textContent = WEAPONS[weaponId];
@@ -1822,6 +1821,12 @@ document.addEventListener('DOMContentLoaded', () => {
             weaponskillSelect.innerHTML = '<option value="">Select Weapon Skill</option>';
 
             if (selectedWeaponId) {
+                // Add "All" option
+                const allOption = document.createElement('option');
+                allOption.value = 'all';
+                allOption.textContent = 'All';
+                weaponskillSelect.appendChild(allOption);
+
                 // Filter and populate weaponskills
                 for (const wsId in WEAPONSKILLS) {
                     if (WEAPONSKILLS[wsId].skill === selectedWeaponId) {
@@ -1834,4 +1839,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    const applyButton = document.getElementById('apply-button');
+    applyButton.addEventListener('click', calculateSkillchains);
 });
+
+function calculateSkillchains() {
+    console.log("Apply button clicked. Calculating skillchains...");
+    const dropdownSets = document.querySelectorAll('.dropdown-set');
+    const selectedSkills = [];
+
+    dropdownSets.forEach((set, index) => {
+        const weaponskillSelect = set.querySelector('.weaponskill-select');
+        const selectedWsId = weaponskillSelect.value;
+
+        if (selectedWsId) {
+            selectedSkills.push({
+                ...WEAPONSKILLS[selectedWsId],
+                id: selectedWsId
+            });
+        }
+    });
+
+    console.log("Selected weapon skills:", selectedSkills);
+
+    // TODO: Implement skillchain calculation logic here.
+}
