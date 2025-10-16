@@ -1738,6 +1738,21 @@ const WEAPONSKILLS = {
     }
 }
 
+const TRANSFIXION = 'Transfixion'
+const COMPRESSION = 'Compression'
+const LIQUEFACTION = 'Liquefaction'
+const SCISSION = 'Scission'
+const REVERBERATION = 'Reverberation'
+const DETONATION = 'Detonation'
+const INDURATION = 'Induration'
+const IMPACTION = 'Impaction'
+const GRAVITATION = 'Gravitation'
+const DISTORTION = 'Distortion'
+const FUSION = 'Fusion'
+const FRAGMENTATION = 'Fragmentation'
+const LIGHT = 'Light'
+const DARKNESS = 'Darkness'
+
 const SKILLCHAINS = {
     Transfixion: {
         Compression: COMPRESSION, Scission: DISTORTION, Reverberation: REVERBERATION
@@ -1781,4 +1796,255 @@ const SKILLCHAINS = {
     Darkness: {
         Darkness: "Darkness [lvl.4]"
     }
+}
+
+const SKILLCHAIN_RANKS = {
+    // Level 1
+    'Transfixion': 1,
+    'Compression': 1,
+    'Liquefaction': 1,
+    'Scission': 1,
+    'Reverberation': 1,
+    'Detonation': 1,
+    'Induration': 1,
+    'Impaction': 1,
+    // Level 2
+    'Gravitation': 2,
+    'Distortion': 2,
+    'Fusion': 2,
+    'Fragmentation': 2,
+    // Level 3
+    'Light': 3,
+    'Darkness': 3,
+    // Level 4
+    'Light [lvl.4]': 4,
+    'Darkness [lvl.4]': 4
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const dropdownSets = document.querySelectorAll('.dropdown-set');
+
+    dropdownSets.forEach(set => {
+        const weaponSelect = set.querySelector('.weapon-select');
+        const weaponskillSelect = set.querySelector('.weaponskill-select');
+
+        // Populate weapon select
+        for (const weaponId in WEAPONS) {
+            const option = document.createElement('option');
+            option.value = weaponId;
+            option.textContent = WEAPONS[weaponId];
+            weaponSelect.appendChild(option);
+        }
+
+        // Add event listener to weapon select
+        weaponSelect.addEventListener('change', () => {
+            const selectedWeaponId = parseInt(weaponSelect.value);
+
+            // Clear existing weaponskill options
+            weaponskillSelect.innerHTML = '<option value="">Select Weapon Skill</option>';
+
+            if (selectedWeaponId) {
+                // Add "All" option
+                const allOption = document.createElement('option');
+                allOption.value = 'all';
+                allOption.textContent = 'All';
+                weaponskillSelect.appendChild(allOption);
+
+                // Filter and populate weaponskills
+                for (const wsId in WEAPONSKILLS) {
+                    if (WEAPONSKILLS[wsId].skill === selectedWeaponId) {
+                        const option = document.createElement('option');
+                        option.value = wsId;
+                        option.textContent = WEAPONSKILLS[wsId].en;
+                        weaponskillSelect.appendChild(option);
+                    }
+                }
+            }
+        });
+    });
+
+    const applyButton = document.getElementById('apply-button');
+    applyButton.addEventListener('click', calculateSkillchains);
+});
+
+let allFoundPaths = []; // Store all results for filtering
+
+document.addEventListener('DOMContentLoaded', () => {
+    const searchBox = document.getElementById('search-box');
+    searchBox.addEventListener('input', () => {
+        displayResults(allFoundPaths);
+    });
+});
+
+function getSkillchain(prop1, prop2) {
+    if (SKILLCHAINS[prop1] && SKILLCHAINS[prop1][prop2]) {
+        return SKILLCHAINS[prop1][prop2];
+    }
+    return null;
+}
+
+function getPermutations(array) {
+    if (array.length <= 1) return [array];
+    const perms = [];
+    for (let i = 0; i < array.length; i++) {
+        const current = array[i];
+        const remaining = [...array.slice(0, i), ...array.slice(i + 1)];
+        const remainingPerms = getPermutations(remaining);
+        for (let j = 0; j < remainingPerms.length; j++) {
+            const perm = [current, ...remainingPerms[j]];
+            perms.push(perm);
+        }
+    }
+    return perms;
+}
+
+
+function findSkillchains(path) {
+    if (path.length < 2) return [];
+
+    let currentSc = null;
+    const results = [];
+
+    // Find initial skillchain between first two skills
+    const ws1Props = [path[0].skillchain_a, path[0].skillchain_b, path[0].skillchain_c].filter(Boolean);
+    const ws2Props = [path[1].skillchain_a, path[1].skillchain_b, path[1].skillchain_c].filter(Boolean);
+
+    for (const p1 of ws1Props) {
+        for (const p2 of ws2Props) {
+            currentSc = getSkillchain(p1, p2);
+            if (currentSc) break;
+        }
+        if (currentSc) break;
+    }
+
+    if (!currentSc) return []; // No SC between first two
+    results.push(currentSc);
+
+    // Continue for the rest of the path
+    for (let i = 2; i < path.length; i++) {
+        // A skillchain can only be closed by the *first* property of the next WS.
+        const closingProp = path[i].skillchain_a;
+        let nextSc = null;
+
+        if (closingProp) {
+            nextSc = getSkillchain(currentSc, closingProp);
+        }
+
+        if (nextSc) {
+            currentSc = nextSc;
+            results.push(currentSc);
+        } else {
+            return []; // Chain broken
+        }
+    }
+
+    return results;
+}
+
+function displayResults(paths) {
+    const resultsContainer = document.getElementById('results-container');
+    const searchBox = document.getElementById('search-box');
+    const searchTerm = searchBox.value.toLowerCase();
+    resultsContainer.innerHTML = '';
+
+    const filteredPaths = searchTerm
+        ? paths.filter(p => p.pathString.toLowerCase().includes(searchTerm) || p.scString.toLowerCase().includes(searchTerm))
+        : paths;
+
+    const pathsToDisplay = filteredPaths.slice(0, 20);
+
+    if (pathsToDisplay.length === 0) {
+        resultsContainer.innerHTML = '<p>No matching skillchains found.</p>';
+        return;
+    }
+
+    pathsToDisplay.forEach(p => {
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'bg-gray-800 p-3 rounded mb-2';
+        resultDiv.innerHTML = `<p class="font-semibold">${p.pathString}</p><p class="text-blue-400">Result: ${p.scString}</p>`;
+        resultsContainer.appendChild(resultDiv);
+    });
+
+    if (filteredPaths.length > 20) {
+        resultsContainer.innerHTML += `<p class="text-gray-400 mt-2">Showing 20 of ${filteredPaths.length} results. Refine your search to see more.</p>`;
+    }
+}
+
+async function calculateSkillchains() {
+    const resultsArea = document.getElementById('results-area');
+    const resultsContainer = document.getElementById('results-container');
+
+    const dropdownSets = document.querySelectorAll('.dropdown-set');
+    const skillGroups = [];
+    dropdownSets.forEach(set => {
+        const weaponSelect = set.querySelector('.weapon-select');
+        const weaponskillSelect = set.querySelector('.weaponskill-select');
+        const selectedWsId = weaponskillSelect.value;
+        const selectedWeaponId = parseInt(weaponSelect.value);
+
+        if (!selectedWeaponId || !selectedWsId) return;
+
+        const group = [];
+        if (selectedWsId === 'all') {
+            for (const wsId in WEAPONSKILLS) {
+                if (WEAPONSKILLS[wsId].skill === selectedWeaponId) {
+                    group.push({ ...WEAPONSKILLS[wsId], id: wsId });
+                }
+            }
+        } else {
+            group.push({ ...WEAPONSKILLS[selectedWsId], id: selectedWsId });
+        }
+        if (group.length > 0) {
+            skillGroups.push(group);
+        }
+    });
+
+    if (skillGroups.length < 2) {
+        resultsArea.classList.remove('hidden');
+        resultsContainer.innerHTML = '<p>Please select at least two weapon skills to calculate a skillchain.</p>';
+        document.getElementById('search-box').classList.add('hidden'); // Hide search if not enough skills
+        return;
+    }
+
+    allFoundPaths = [];
+    const foundPathsSet = new Set(); // Use a Set to track unique paths
+
+    const skillGroupPermutations = getPermutations(skillGroups);
+
+    skillGroupPermutations.forEach(permutedGroup => {
+        function findPaths(index, currentPath) {
+            // Check for skillchains at each step (for paths of 2 or more)
+            if (currentPath.length >= 2) {
+                const pathString = currentPath.map(ws => ws.en).join(' → ');
+                if (!foundPathsSet.has(pathString)) { // Check for duplicates
+                    const scPath = findSkillchains(currentPath);
+                    if (scPath.length > 0) {
+                        const finalSc = scPath[scPath.length - 1];
+                        allFoundPaths.push({
+                            pathString: pathString,
+                            scString: scPath.join(' → '),
+                            rank: SKILLCHAIN_RANKS[finalSc] || 0
+                        });
+                        foundPathsSet.add(pathString); // Add the new unique path to the set
+                    }
+                }
+            }
+
+            // If we've reached the end of the permutation, stop.
+            if (index === permutedGroup.length) {
+                return;
+            }
+            permutedGroup[index].forEach(skill => findPaths(index + 1, [...currentPath, skill]));
+        }
+
+        findPaths(0, []);
+    });
+
+    // Sort paths by rank in descending order
+    allFoundPaths.sort((a, b) => b.rank - a.rank);
+
+
+    resultsArea.classList.remove('hidden');
+    document.getElementById('search-box').classList.remove('hidden');
+    displayResults(allFoundPaths);
 }
