@@ -1782,3 +1782,40 @@ const SKILLCHAINS = {
         Darkness: "Darkness [lvl.4]"
     }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const dropdownSets = document.querySelectorAll('.dropdown-set');
+
+    dropdownSets.forEach(set => {
+        const weaponSelect = set.querySelector('.weapon-select');
+        const weaponskillSelect = set.querySelector('.weaponskill-select');
+
+        // Populate weapon select
+        for (const weaponId in WEAPONS) {
+            const option = document.createElement('option');
+            option.value = weaponId;
+            option.textContent = WEAPONS[weaponId];
+            weaponSelect.appendChild(option);
+        }
+
+        // Add event listener to weapon select
+        weaponSelect.addEventListener('change', () => {
+            const selectedWeaponId = parseInt(weaponSelect.value);
+
+            // Clear existing weaponskill options
+            weaponskillSelect.innerHTML = '<option value="">Select Weapon Skill</option>';
+
+            if (selectedWeaponId) {
+                // Filter and populate weaponskills
+                for (const wsId in WEAPONSKILLS) {
+                    if (WEAPONSKILLS[wsId].skill === selectedWeaponId) {
+                        const option = document.createElement('option');
+                        option.value = wsId;
+                        option.textContent = WEAPONSKILLS[wsId].en;
+                        weaponskillSelect.appendChild(option);
+                    }
+                }
+            }
+        });
+    });
+});
