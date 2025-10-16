@@ -1970,91 +1970,132 @@ function displayResults(paths) {
     }
 }
 
-async function calculateSkillchains() {
+function calculateSkillchains() {
     const resultsArea = document.getElementById('results-area');
     const resultsContainer = document.getElementById('results-container');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const resultsHeader = document.getElementById('results-header');
 
-    const dropdownSets = document.querySelectorAll('.dropdown-set');
-    const skillGroups = [];
-    dropdownSets.forEach(set => {
-        const weaponSelect = set.querySelector('.weapon-select');
-        const weaponskillSelect = set.querySelector('.weaponskill-select');
-        const selectedOptions = Array.from(weaponskillSelect.selectedOptions);
-        const selectedWsIds = selectedOptions.map(opt => opt.value).filter(Boolean); // Filter out empty values
-        const selectedWeaponId = parseInt(weaponSelect.value);
-
-        if (!selectedWeaponId || selectedWsIds.length === 0) return;
-
-        const group = [];
-        // If "All" is selected, it overrides any other selections in that dropdown
-        if (selectedWsIds.includes('all')) {
-            for (const wsId in WEAPONSKILLS) {
-                if (WEAPONSKILLS[wsId].skill === selectedWeaponId) {
-                    group.push({ ...WEAPONSKILLS[wsId], id: wsId });
-                }
-            }
-        } else {
-            selectedWsIds.forEach(wsId => {
-                if (WEAPONSKILLS[wsId]) {
-                    group.push({ ...WEAPONSKILLS[wsId], id: wsId });
-                }
-            });
-        }
-        if (group.length > 0) {
-            skillGroups.push(group);
-        }
-    });
-
-    if (skillGroups.length < 2) {
-        resultsArea.classList.remove('hidden');
-        resultsContainer.innerHTML = '<p>Please select at least two weapon skills to calculate a skillchain.</p>';
-        document.getElementById('search-box').classList.add('hidden'); // Hide search if not enough skills
-        return;
-    }
-
+    // Prepare UI for loading state
+    resultsArea.classList.remove('hidden');
+    loadingIndicator.classList.remove('hidden');
+    resultsHeader.classList.add('hidden');
+    resultsContainer.innerHTML = '';
     allFoundPaths = [];
-    const foundPathsSet = new Set(); // Use a Set to track unique paths
 
-    // Optimized backtracking algorithm to find all paths without pre-calculating permutations
-    function findPaths(currentPath, remainingGroups) {
-        // Check for skillchains on the current path (length >= 2)
-        if (currentPath.length >= 2) {
-            const pathString = currentPath.map(ws => ws.en).join(' → ');
-            if (!foundPathsSet.has(pathString)) {
-                foundPathsSet.add(pathString); // Add path to set to prevent re-calculation
-                const scPath = findSkillchains(currentPath);
-                if (scPath.length > 0) {
-                    const finalSc = scPath[scPath.length - 1];
-                    allFoundPaths.push({
-                        pathString: pathString,
-                        scString: scPath.join(' → '),
-                        rank: SKILLCHAIN_RANKS[finalSc] || 0
-                    });
+    // Use setTimeout to allow the browser to render the loading indicator before the heavy calculation starts
+    setTimeout(() => {
+        const dropdownSets = document.querySelectorAll('.dropdown-set');
+        const skillGroups = [];
+        dropdownSets.forEach(set => {
+            const weaponSelect = set.querySelector('.weapon-select');
+            const weaponskillSelect = set.querySelector('.weaponskill-select');
+            const selectedOptions = Array.from(weaponskillSelect.selectedOptions);
+            const selectedWsIds = selectedOptions.map(opt => opt.value).filter(Boolean); // Filter out empty values
+            const selectedWeaponId = parseInt(weaponSelect.value);
+
+            if (!selectedWeaponId || selectedWsIds.length === 0) return;
+
+            const group = [];
+            // If "All" is selected, it overrides any other selections in that dropdown
+            if (selectedWsIds.includes('all')) {
+                for (const wsId in WEAPONSKILLS) {
+                    if (WEAPONSKILLS[wsId].skill === selectedWeaponId) {
+                        group.push({ ...WEAPONSKILLS[wsId], id: wsId });
+                    }
                 }
+            } else {
+                selectedWsIds.forEach(wsId => {
+                    if (WEAPONSKILLS[wsId]) {
+                        group.push({ ...WEAPONSKILLS[wsId], id: wsId });
+                    }
+                });
             }
-        }
+            if (group.length > 0) {
+                skillGroups.push(group);
+            }
+        });
 
-        // If there are no more groups to add, we can stop exploring this branch
-        if (remainingGroups.length === 0) {
+        if (skillGroups.length < 2) {
+            loadingIndicator.classList.add('hidden');
+            resultsContainer.innerHTML = '<p>Please select at least two weapon skills to calculate a skillchain.</p>';
+            document.getElementById('search-box').classList.add('hidden'); // Hide search if not enough skills
             return;
         }
 
-        // Explore paths by adding a skill from each of the remaining groups
-        remainingGroups.forEach((group, i) => {
-            const nextRemainingGroups = remainingGroups.slice(0, i).concat(remainingGroups.slice(i + 1));
-            group.forEach(skill => {
-                findPaths([...currentPath, skill], nextRemainingGroups);
+        const CALCULATION_LIMIT = 500000;
+        let calculationCount = 0;
+        let limitReached = false;
+
+        const foundPathsSet = new Set(); // Use a Set to track unique paths
+
+        // Optimized backtracking algorithm to find all paths without pre-calculating permutations
+        function findPaths(currentPath, remainingGroups) {
+            if (limitReached) return;
+
+            calculationCount++;
+            if (calculationCount > CALCULATION_LIMIT) {
+                limitReached = true;
+                return;
+            }
+            // Check for skillchains on the current path (length >= 2)
+            if (currentPath.length >= 2) {
+                const pathString = currentPath.map(ws => ws.en).join(' → ');
+                if (!foundPathsSet.has(pathString)) {
+                    foundPathsSet.add(pathString); // Add path to set to prevent re-calculation
+                    const scPath = findSkillchains(currentPath);
+                    if (scPath.length > 0) {
+                        const finalSc = scPath[scPath.length - 1];
+                        allFoundPaths.push({
+                            pathString: pathString,
+                            scString: scPath.join(' → '),
+                            rank: SKILLCHAIN_RANKS[finalSc] || 0
+                        });
+                    }
+                }
+            }
+
+            // If there are no more groups to add, we can stop exploring this branch
+            if (remainingGroups.length === 0) {
+                return;
+            }
+
+            // Explore paths by adding a skill from each of the remaining groups
+            remainingGroups.forEach((group, i) => {
+                if (limitReached) return;
+                const nextRemainingGroups = remainingGroups.slice(0, i).concat(remainingGroups.slice(i + 1));
+                group.forEach(skill => {
+                    findPaths([...currentPath, skill], nextRemainingGroups);
+                });
             });
-        });
-    }
+        }
 
-    findPaths([], skillGroups);
+        findPaths([], skillGroups);
 
-    // Sort paths by rank in descending order
-    allFoundPaths.sort((a, b) => b.rank - a.rank);
+        // Sort paths by rank in descending order
+        allFoundPaths.sort((a, b) => b.rank - a.rank);
 
+        const showResults = () => {
+            // Hide loader and show results
+            loadingIndicator.classList.add('hidden');
+            resultsHeader.classList.remove('hidden');
+            
+            document.getElementById('search-box').classList.remove('hidden');
+            displayResults(allFoundPaths);
+            
+            if (limitReached) {
+                resultsContainer.innerHTML += `<p class="text-yellow-400 mt-4 font-semibold">Calculation limit of ${CALCULATION_LIMIT.toLocaleString()} iterations reached. Results may be incomplete. Please narrow your selections.</p>`;
+            }
+        };
 
-    resultsArea.classList.remove('hidden');
-    document.getElementById('search-box').classList.remove('hidden');
-    displayResults(allFoundPaths);
+        if (limitReached) {
+            // If the limit was hit, let the GIF play out before showing results.
+            // IMPORTANT: Change this value to match your GIF's duration in milliseconds.
+            const GIF_DURATION_MS = 7000; 
+            setTimeout(showResults, GIF_DURATION_MS);
+        } else {
+            // Otherwise, show results immediately.
+            showResults();
+        }
+    }, 0); // A timeout of 0 is enough to yield to the browser's rendering engine
 }
