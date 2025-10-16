@@ -1979,20 +1979,26 @@ async function calculateSkillchains() {
     dropdownSets.forEach(set => {
         const weaponSelect = set.querySelector('.weapon-select');
         const weaponskillSelect = set.querySelector('.weaponskill-select');
-        const selectedWsId = weaponskillSelect.value;
+        const selectedOptions = Array.from(weaponskillSelect.selectedOptions);
+        const selectedWsIds = selectedOptions.map(opt => opt.value).filter(Boolean); // Filter out empty values
         const selectedWeaponId = parseInt(weaponSelect.value);
 
-        if (!selectedWeaponId || !selectedWsId) return;
+        if (!selectedWeaponId || selectedWsIds.length === 0) return;
 
         const group = [];
-        if (selectedWsId === 'all') {
+        // If "All" is selected, it overrides any other selections in that dropdown
+        if (selectedWsIds.includes('all')) {
             for (const wsId in WEAPONSKILLS) {
                 if (WEAPONSKILLS[wsId].skill === selectedWeaponId) {
                     group.push({ ...WEAPONSKILLS[wsId], id: wsId });
                 }
             }
         } else {
-            group.push({ ...WEAPONSKILLS[selectedWsId], id: selectedWsId });
+            selectedWsIds.forEach(wsId => {
+                if (WEAPONSKILLS[wsId]) {
+                    group.push({ ...WEAPONSKILLS[wsId], id: wsId });
+                }
+            });
         }
         if (group.length > 0) {
             skillGroups.push(group);
@@ -2009,36 +2015,40 @@ async function calculateSkillchains() {
     allFoundPaths = [];
     const foundPathsSet = new Set(); // Use a Set to track unique paths
 
-    const skillGroupPermutations = getPermutations(skillGroups);
-
-    skillGroupPermutations.forEach(permutedGroup => {
-        function findPaths(index, currentPath) {
-            // Check for skillchains at each step (for paths of 2 or more)
-            if (currentPath.length >= 2) {
-                const pathString = currentPath.map(ws => ws.en).join(' → ');
-                if (!foundPathsSet.has(pathString)) { // Check for duplicates
-                    const scPath = findSkillchains(currentPath);
-                    if (scPath.length > 0) {
-                        const finalSc = scPath[scPath.length - 1];
-                        allFoundPaths.push({
-                            pathString: pathString,
-                            scString: scPath.join(' → '),
-                            rank: SKILLCHAIN_RANKS[finalSc] || 0
-                        });
-                        foundPathsSet.add(pathString); // Add the new unique path to the set
-                    }
+    // Optimized backtracking algorithm to find all paths without pre-calculating permutations
+    function findPaths(currentPath, remainingGroups) {
+        // Check for skillchains on the current path (length >= 2)
+        if (currentPath.length >= 2) {
+            const pathString = currentPath.map(ws => ws.en).join(' → ');
+            if (!foundPathsSet.has(pathString)) {
+                foundPathsSet.add(pathString); // Add path to set to prevent re-calculation
+                const scPath = findSkillchains(currentPath);
+                if (scPath.length > 0) {
+                    const finalSc = scPath[scPath.length - 1];
+                    allFoundPaths.push({
+                        pathString: pathString,
+                        scString: scPath.join(' → '),
+                        rank: SKILLCHAIN_RANKS[finalSc] || 0
+                    });
                 }
             }
-
-            // If we've reached the end of the permutation, stop.
-            if (index === permutedGroup.length) {
-                return;
-            }
-            permutedGroup[index].forEach(skill => findPaths(index + 1, [...currentPath, skill]));
         }
 
-        findPaths(0, []);
-    });
+        // If there are no more groups to add, we can stop exploring this branch
+        if (remainingGroups.length === 0) {
+            return;
+        }
+
+        // Explore paths by adding a skill from each of the remaining groups
+        remainingGroups.forEach((group, i) => {
+            const nextRemainingGroups = remainingGroups.slice(0, i).concat(remainingGroups.slice(i + 1));
+            group.forEach(skill => {
+                findPaths([...currentPath, skill], nextRemainingGroups);
+            });
+        });
+    }
+
+    findPaths([], skillGroups);
 
     // Sort paths by rank in descending order
     allFoundPaths.sort((a, b) => b.rank - a.rank);
