@@ -1738,6 +1738,21 @@ const WEAPONSKILLS = {
     }
 }
 
+const TRANSFIXION = 'Transfixion'
+const COMPRESSION = 'Compression'
+const LIQUEFACTION = 'Liquefaction'
+const SCISSION = 'Scission'
+const REVERBERATION = 'Reverberation'
+const DETONATION = 'Detonation'
+const INDURATION = 'Induration'
+const IMPACTION = 'Impaction'
+const GRAVITATION = 'Gravitation'
+const DISTORTION = 'Distortion'
+const FUSION = 'Fusion'
+const FRAGMENTATION = 'Fragmentation'
+const LIGHT = 'Light'
+const DARKNESS = 'Darkness'
+
 const SKILLCHAINS = {
     Transfixion: {
         Compression: COMPRESSION, Scission: DISTORTION, Reverberation: REVERBERATION
@@ -1792,6 +1807,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Populate weapon select
         for (const weaponId in WEAPONS) {
+            console.log(weaponId)
             const option = document.createElement('option');
             option.value = weaponId;
             option.textContent = WEAPONS[weaponId];
