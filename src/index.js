@@ -2007,21 +2007,31 @@ async function calculateSkillchains() {
     }
 
     allFoundPaths = [];
+    const foundPathsSet = new Set(); // Use a Set to track unique paths
 
     const skillGroupPermutations = getPermutations(skillGroups);
 
     skillGroupPermutations.forEach(permutedGroup => {
         function findPaths(index, currentPath) {
-            if (index === permutedGroup.length) {
-                const scPath = findSkillchains(currentPath);
-                if (scPath.length > 0) {
-                    const finalSc = scPath[scPath.length - 1];
-                    allFoundPaths.push({
-                        pathString: currentPath.map(ws => ws.en).join(' -> '),
-                        scString: scPath.join(' -> '),
-                        rank: SKILLCHAIN_RANKS[finalSc] || 0
-                    });
+            // Check for skillchains at each step (for paths of 2 or more)
+            if (currentPath.length >= 2) {
+                const pathString = currentPath.map(ws => ws.en).join(' → ');
+                if (!foundPathsSet.has(pathString)) { // Check for duplicates
+                    const scPath = findSkillchains(currentPath);
+                    if (scPath.length > 0) {
+                        const finalSc = scPath[scPath.length - 1];
+                        allFoundPaths.push({
+                            pathString: pathString,
+                            scString: scPath.join(' → '),
+                            rank: SKILLCHAIN_RANKS[finalSc] || 0
+                        });
+                        foundPathsSet.add(pathString); // Add the new unique path to the set
+                    }
                 }
+            }
+
+            // If we've reached the end of the permutation, stop.
+            if (index === permutedGroup.length) {
                 return;
             }
             permutedGroup[index].forEach(skill => findPaths(index + 1, [...currentPath, skill]));
